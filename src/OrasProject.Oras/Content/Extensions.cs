@@ -81,7 +81,7 @@ public static class Extensions
     /// <returns></returns>
     public static async Task<byte[]> FetchAllAsync(this IFetchable fetcher, Descriptor desc, CancellationToken cancellationToken = default)
     {
-        var stream = await fetcher.FetchAsync(desc, cancellationToken).ConfigureAwait(false);
+        using var stream = await fetcher.FetchAsync(desc, cancellationToken).ConfigureAwait(false);
         return await stream.ReadAllAsync(desc, cancellationToken).ConfigureAwait(false);
     }
 
@@ -100,26 +100,21 @@ public static class Extensions
         {
             throw new InvalidDescriptorSizeException("Descriptor size is less than 0");
         }
-        var buffer = new byte[descriptor.Size];
-        try
+        // TODO: tests
+        if (descriptor.Size != stream.Length)
         {
-            int bytesToRead = (int)Math.Min(descriptor.Size, stream.Length);
-            await stream.ReadAsync(buffer.AsMemory(0, bytesToRead), cancellationToken).ConfigureAwait(false);
+            throw new InvalidDescriptorSizeException("Descriptor size mismatches the stream length");
         }
-        catch (ArgumentOutOfRangeException)
-        {
-            throw new MismatchedDigestException("Descriptor size is less than content size");
-        }
-        finally
-        {
-            // Dispose the stream
-            stream.Dispose();
-        }
+
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream, cancellationToken).ConfigureAwait(false);
+        var buffer = memoryStream.ToArray();
 
         if (Digest.ComputeSha256(buffer) != descriptor.Digest)
         {
             throw new MismatchedDigestException("Descriptor digest is different from content digest");
         }
         return buffer;
+
     }
 }
