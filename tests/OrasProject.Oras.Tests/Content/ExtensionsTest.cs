@@ -220,7 +220,7 @@ public class ExtensionsTest
         using var stream = new MemoryStream(bytes);
 
         // Act & Assert
-        ArgumentException ex = await Assert.ThrowsAsync<ArgumentException>(() => stream.ReadAllAsync(descriptor, CancellationToken.None));
+        MismatchedSizeException ex = await Assert.ThrowsAsync<MismatchedSizeException>(() => stream.ReadAllAsync(descriptor, CancellationToken.None));
         Assert.Contains("is larger than the content length", ex.Message);
     }
 
@@ -244,7 +244,7 @@ public class ExtensionsTest
         using var stream = new MemoryStream(content);
 
         // Act & Assert
-        ArgumentException ex = await Assert.ThrowsAsync<ArgumentException>(() => stream.ReadAllAsync(descriptor, CancellationToken.None));
+        MismatchedSizeException ex = await Assert.ThrowsAsync<MismatchedSizeException>(() => stream.ReadAllAsync(descriptor, CancellationToken.None));
         Assert.Contains("is smaller than the content length", ex.Message);
     }
 
