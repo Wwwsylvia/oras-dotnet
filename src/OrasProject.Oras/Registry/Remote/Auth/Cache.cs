@@ -11,14 +11,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace OrasProject.Oras.Registry.Remote.Auth;
 
 public class Cache(IMemoryCache memoryCache) : ICache
 {
+    private readonly IMemoryCache _memoryCache = memoryCache;
 
     /// <summary>
     /// TryGetScheme attempts to retrieve the authentication scheme associated with the specified registry.
@@ -33,8 +32,10 @@ public class Cache(IMemoryCache memoryCache) : ICache
     /// </returns>
     public bool TryGetScheme(string registry, out Challenge.Scheme scheme)
     {
-        if (memoryCache.TryGetValue((registry, "scheme"), out scheme))
+        if (_memoryCache.TryGetValue((registry, "scheme"), out scheme))
+        {
             return true;
+        }
 
         scheme = Challenge.Scheme.Unknown;
         return false;
@@ -54,8 +55,8 @@ public class Cache(IMemoryCache memoryCache) : ICache
     /// </remarks>
     public void SetCache(string registry, Challenge.Scheme scheme, string key, string token)
     {
-        memoryCache.Set((registry, "scheme"), scheme);
-        memoryCache.Set((registry, key), token);
+        _memoryCache.Set((registry, "scheme"), scheme);
+        _memoryCache.Set((registry, key), token);
     }
 
     /// <summary>
@@ -73,8 +74,11 @@ public class Cache(IMemoryCache memoryCache) : ICache
     /// </returns>
     public bool TryGetToken(string registry, Challenge.Scheme scheme, string key, out string token)
     {
-        if (memoryCache.TryGetValue((registry, key), out token))
+        if (_memoryCache.TryGetValue((registry, key), out string? cachedToken) && !string.IsNullOrWhiteSpace(cachedToken))
+        {
+            token = cachedToken;
             return true;
+        }
 
         token = string.Empty;
         return false;
