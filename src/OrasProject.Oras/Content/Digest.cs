@@ -42,17 +42,36 @@ internal static partial class Digest
     /// <summary>
     /// Verifies the digest header and throws an exception if it is invalid.
     /// </summary>
-    /// <param name="digest"></param>
+    /// <param name="digest">The digest to validate</param>
+    /// <returns>The validated digest as a string</returns>
+    /// <exception cref="InvalidDigestException">Thrown when the digest is invalid</exception>
     internal static string Validate(string digest)
     {
-        return TryValidate(digest, out var error)
+        return TryValidate(digest.AsSpan(), out var error)
             ? digest
             : throw new InvalidDigestException(error);
     }
 
+    /// <summary>
+    /// Tries to validate a digest without throwing an exception.
+    /// </summary>
+    /// <param name="digest">The digest to validate</param>
+    /// <param name="error">The error message if validation fails</param>
+    /// <returns>True if the digest is valid, false otherwise</returns>
     internal static bool TryValidate(string digest, out string error)
     {
-        if (string.IsNullOrEmpty(digest))
+        return TryValidate(digest.AsSpan(), out error);
+    }
+
+    /// <summary>
+    /// Tries to validate a digest without throwing an exception.
+    /// </summary>
+    /// <param name="digest">The digest to validate as ReadOnlySpan</param>
+    /// <param name="error">The error message if validation fails</param>
+    /// <returns>True if the digest is valid, false otherwise</returns>
+    private static bool TryValidate(ReadOnlySpan<char> digest, out string error)
+    {
+        if (digest.IsEmpty)
         {
             error = "Digest is null or empty";
             return false;
@@ -64,7 +83,18 @@ internal static partial class Digest
             return false;
         }
 
-        var algorithm = digest.Split(':')[0];
+        // Find the index of the colon that separates algorithm from value
+        int colonIndex = digest.IndexOf(':');
+        if (colonIndex <= 0) // Shouldn't happen if regex passed, but check anyway
+        {
+            error = $"Invalid digest format (missing algorithm): {digest}";
+            return false;
+        }
+
+        // Extract just the algorithm part without allocating a new string array
+        var algorithmSpan = digest[..colonIndex];
+        string algorithm = algorithmSpan.ToString(); // Convert to string for HashSet check
+
         if (!_supportedAlgorithms.Contains(algorithm))
         {
             error = $"Unrecognized, unregistered or unsupported digest algorithm: {algorithm}";
